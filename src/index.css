@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+/* Basis 18px: semua teks & tombol sedikit lebih besar untuk papa. */
+html {
+  font-size: 112.5%;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  @apply bg-gray-50 text-gray-900 antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  cursor: pointer;
+  touch-action: manipulation;
+}
