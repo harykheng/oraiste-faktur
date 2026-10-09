@@ -1,9 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { formatRupiah } from '../lib/format.js'
 import {
-  Badge, Button, ErrorText, Field, Loading, MoneyInput, NumberInput, PageHeader, Sheet, TextArea, TextInput, Toggle,
+  Badge, Button, ErrorText, Field, Loading, MoneyInput, NumberInput, PageHeader, Select,
+  Sheet, TextArea, TextInput, Toggle,
 } from '../components/ui.jsx'
+
+const PRESET_UNITS = ['lusin', 'pack', 'pcs']
+const CUSTOM_UNIT = '__custom__'
 
 export default function Products() {
   const [products, setProducts] = useState(null)
@@ -23,6 +27,12 @@ export default function Products() {
   useEffect(() => {
     load()
   }, [])
+
+  // Satuan yang sudah pernah dipakai produk lain, supaya gampang dipilih lagi.
+  const unitOptions = useMemo(() => {
+    const used = (products ?? []).map((p) => p.unit_label)
+    return Array.from(new Set([...PRESET_UNITS, ...used])).sort((a, b) => a.localeCompare(b))
+  }, [products])
 
   return (
     <>
@@ -56,6 +66,7 @@ export default function Products() {
         <Sheet title={editing === 'new' ? 'Produk Baru' : 'Edit Produk'} onClose={() => setEditing(null)}>
           <ProductForm
             product={editing === 'new' ? null : editing}
+            unitOptions={unitOptions}
             onSaved={() => {
               setEditing(null)
               load()
@@ -67,11 +78,14 @@ export default function Products() {
   )
 }
 
-function ProductForm({ product, onSaved }) {
+function ProductForm({ product, unitOptions, onSaved }) {
   const [name, setName] = useState(product?.name ?? '')
   const [boxQty, setBoxQty] = useState(product?.box_qty ?? '')
   const [unitLabel, setUnitLabel] = useState(product?.unit_label ?? 'lusin')
-  // price selalu harga per dus — ini yang disimpan ke database.
+  // Mode "Lainnya" di-track terpisah, supaya input teksnya tidak hilang
+  // begitu dikosongkan sambil mengetik.
+  const [customUnit, setCustomUnit] = useState(() => !unitOptions.includes(unitLabel))
+  // price & costPrice selalu per dus — ini yang disimpan ke database.
   const [price, setPrice] = useState(product?.default_price ?? 0)
   const [costPrice, setCostPrice] = useState(product?.cost_price ?? 0)
   const [notes, setNotes] = useState(product?.notes ?? '')
@@ -81,8 +95,19 @@ function ProductForm({ product, onSaved }) {
 
   const boxQtyNum = Number(boxQty) || 0
   const perUnit = boxQtyNum > 0 ? Math.round(price / boxQtyNum) : 0
+  const costPerUnit = boxQtyNum > 0 ? Math.round(costPrice / boxQtyNum) : 0
   const unitLabelTrimmed = unitLabel.trim() || 'satuan'
   const margin = costPrice > 0 && price > 0 ? price - costPrice : null
+
+  function selectUnit(value) {
+    if (value === CUSTOM_UNIT) {
+      setCustomUnit(true)
+      setUnitLabel('')
+    } else {
+      setCustomUnit(false)
+      setUnitLabel(value)
+    }
+  }
 
   async function save() {
     if (!name.trim()) return setError('Nama produk wajib diisi.')
@@ -117,14 +142,29 @@ function ProductForm({ product, onSaved }) {
       <Field label="Isi per dus" hint="Angka + satuan, mis. 50 lusin, atau 200 pack.">
         <div className="flex gap-2">
           <NumberInput className="w-24 shrink-0" value={boxQty} onChange={setBoxQty} aria-label="Jumlah isi per dus" />
-          <TextInput
+          <Select
             className="flex-1"
+            value={customUnit ? CUSTOM_UNIT : unitLabel}
+            onChange={(e) => selectUnit(e.target.value)}
+            aria-label="Satuan"
+          >
+            {unitOptions.map((u) => (
+              <option key={u} value={u}>
+                {u}
+              </option>
+            ))}
+            <option value={CUSTOM_UNIT}>Lainnya…</option>
+          </Select>
+        </div>
+        {customUnit && (
+          <TextInput
+            className="mt-2"
             value={unitLabel}
             onChange={(e) => setUnitLabel(e.target.value)}
-            placeholder="lusin"
-            aria-label="Satuan"
+            placeholder="Ketik satuan sendiri, mis. botol"
+            aria-label="Satuan lainnya"
           />
-        </div>
+        )}
       </Field>
 
       <Field label="Harga default per dus" hint="Dipakai kalau toko belum pernah beli produk ini.">
@@ -142,6 +182,11 @@ function ProductForm({ product, onSaved }) {
       <Field label="Harga modal per dus" hint="Opsional, cuma buat catatan kamu — tidak pernah muncul di faktur.">
         <MoneyInput value={costPrice} onChange={setCostPrice} />
       </Field>
+      {boxQtyNum > 0 && (
+        <Field label={`Harga modal per ${unitLabelTrimmed}`} hint="Saling terhubung dengan harga modal per dus di atas.">
+          <MoneyInput value={costPerUnit} onChange={(v) => setCostPrice(v * boxQtyNum)} />
+        </Field>
+      )}
       {margin !== null && (
         <p className="-mt-2 text-sm text-gray-600">
           Untung ≈ {formatRupiah(margin)} per dus ({Math.round((margin / price) * 100)}% dari harga jual)

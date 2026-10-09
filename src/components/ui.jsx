@@ -36,6 +36,14 @@ export function TextInput({ className = '', ...props }) {
   return <input className={`${INPUT_CLASS} ${className}`} {...props} />
 }
 
+export function Select({ className = '', children, ...props }) {
+  return (
+    <select className={`${INPUT_CLASS} ${className}`} {...props}>
+      {children}
+    </select>
+  )
+}
+
 export function TextArea({ className = '', ...props }) {
   return <textarea className={`${INPUT_CLASS} py-2 ${className}`} rows={3} {...props} />
 }
