@@ -3,7 +3,7 @@ import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
 // Template PDF A5 portrait. Hanya merender objek dari buildInvoiceDoc().
 // Template lain (mis. struk thermal) cukup dibuat sebagai file baru di folder ini.
 
-const COL = { product: '44%', qty: '12%', price: '21%', subtotal: '23%' }
+const COL = { product: '38%', qty: '18%', price: '21%', subtotal: '23%' }
 
 const s = StyleSheet.create({
   page: { padding: 28, fontSize: 9, fontFamily: 'Helvetica', color: '#111827' },
@@ -64,8 +64,8 @@ export default function InvoiceA5({ doc }) {
 
         <View style={s.tableHead}>
           <Text style={[s.cell, { width: COL.product }]}>Produk (isi per dus)</Text>
-          <Text style={[s.cell, s.right, { width: COL.qty }]}>Qty (dus)</Text>
-          <Text style={[s.cell, s.right, { width: COL.price }]}>Harga/dus</Text>
+          <Text style={[s.cell, s.right, { width: COL.qty }]}>Qty</Text>
+          <Text style={[s.cell, s.right, { width: COL.price }]}>Harga</Text>
           <Text style={[s.cell, s.right, { width: COL.subtotal }]}>Subtotal</Text>
         </View>
         {doc.items.map((it, i) => (
