@@ -140,10 +140,9 @@ function ProductForm({ product, unitOptions, onSaved }) {
       </Field>
 
       <Field label="Isi per dus" hint="Angka + satuan, mis. 50 lusin, atau 200 pack.">
-        <div className="flex gap-2">
-          <NumberInput className="w-24 shrink-0" value={boxQty} onChange={setBoxQty} aria-label="Jumlah isi per dus" />
+        <div className="grid gap-2">
+          <NumberInput value={boxQty} onChange={setBoxQty} aria-label="Jumlah isi per dus" />
           <Select
-            className="flex-1"
             value={customUnit ? CUSTOM_UNIT : unitLabel}
             onChange={(e) => selectUnit(e.target.value)}
             aria-label="Satuan"
