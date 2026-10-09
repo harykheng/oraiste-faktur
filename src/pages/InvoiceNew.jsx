@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { addDays, formatDate, formatRupiah, jakartaToday, termLabel } from '../lib/format.js'
 import {
-  BackButton, Button, Chip, ConfirmSheet, ErrorText, Loading, MoneyInput, NumberInput,
-  PageHeader, SearchInput, Segmented, Sheet, Stepper, Toggle,
+  BackButton, Button, Chip, ConfirmSheet, ErrorText, Field, Loading, MoneyInput, NumberInput,
+  PageHeader, SearchInput, Segmented, Sheet, Stepper, TextInput, Toggle,
 } from '../components/ui.jsx'
 import CustomerForm from '../components/CustomerForm.jsx'
 
@@ -36,6 +36,8 @@ export default function InvoiceNew() {
   const [lines, setLines] = useState({})
   const [productQuery, setProductQuery] = useState('')
 
+  const today = jakartaToday()
+  const [invoiceDate, setInvoiceDate] = useState(today)
   const [termDays, setTermDays] = useState(0)
   const [delivery, setDelivery] = useState('delivered')
   const [paidInFull, setPaidInFull] = useState(true)
@@ -111,6 +113,8 @@ export default function InvoiceNew() {
   async function submit() {
     setSubmitError('')
     if (!customer) return setSubmitError('Pilih toko dulu.')
+    if (!invoiceDate) return setSubmitError('Tanggal faktur wajib diisi.')
+    if (invoiceDate > today) return setSubmitError('Tanggal faktur tidak boleh di masa depan.')
     if (selected.length === 0) return setSubmitError('Pilih minimal 1 produk.')
     const noPrice = selected.find((p) => !(priceFor(p) > 0))
     if (noPrice) return setSubmitError(`Harga ${noPrice.name} belum diisi.`)
@@ -119,6 +123,7 @@ export default function InvoiceNew() {
     const { data, error } = await supabase.rpc('create_invoice', {
       payload: {
         customer_id: customer.id,
+        invoice_date: invoiceDate,
         term_days: Number(termDays) || 0,
         delivery_status: delivery,
         paid_in_full: paidInFull,
@@ -175,7 +180,7 @@ export default function InvoiceNew() {
   }
   if (!customers || !products) return <Loading />
 
-  const dueDate = addDays(jakartaToday(), Number(termDays) || 0)
+  const dueDate = addDays(invoiceDate || today, Number(termDays) || 0)
 
   return (
     <>
@@ -232,6 +237,10 @@ export default function InvoiceNew() {
             </Section>
 
             <Section title="3. Pembayaran & Pengiriman">
+              <Field label="Tanggal faktur">
+                <TextInput type="date" value={invoiceDate} max={today} onChange={(e) => setInvoiceDate(e.target.value)} />
+              </Field>
+
               <div>
                 <p className="mb-1 font-medium text-gray-700">Tempo (hari)</p>
                 <div className="flex gap-2 overflow-x-auto pb-1">
@@ -243,7 +252,7 @@ export default function InvoiceNew() {
                 </div>
                 <NumberInput className="mt-2" value={termDays} onChange={changeTerm} aria-label="Tempo dalam hari" />
                 <p className="mt-1 text-sm text-gray-600">
-                  {Number(termDays) === 0 ? 'Cash, jatuh tempo hari ini' : `Jatuh tempo ${formatDate(dueDate)}`}
+                  {Number(termDays) === 0 ? 'Cash' : 'Tempo'} · Jatuh tempo {formatDate(dueDate)}
                 </p>
               </div>
 

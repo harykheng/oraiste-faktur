@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { formatRupiah } from '../lib/format.js'
 import {
-  Badge, Button, ErrorText, Field, Loading, MoneyInput, NumberInput, PageHeader, Sheet, TextInput, Toggle,
+  Badge, Button, ErrorText, Field, Loading, MoneyInput, NumberInput, PageHeader, Segmented, Sheet, TextInput, Toggle,
 } from '../components/ui.jsx'
 
 export default function Products() {
@@ -70,10 +70,15 @@ export default function Products() {
 function ProductForm({ product, onSaved }) {
   const [name, setName] = useState(product?.name ?? '')
   const [dozens, setDozens] = useState(product?.dozens_per_box ?? '')
+  // price selalu harga per dus — ini yang disimpan ke database.
   const [price, setPrice] = useState(product?.default_price ?? 0)
+  const [priceMode, setPriceMode] = useState('dus') // 'dus' | 'lusin' — cuma cara mengisi
   const [active, setActive] = useState(product?.is_active ?? true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+
+  const dozensNum = Number(dozens) || 0
+  const perLusin = dozensNum > 0 ? Math.round(price / dozensNum) : 0
 
   async function save() {
     if (!name.trim()) return setError('Nama produk wajib diisi.')
@@ -98,9 +103,37 @@ function ProductForm({ product, onSaved }) {
       <Field label="Isi per dus (lusin)">
         <NumberInput value={dozens} onChange={setDozens} />
       </Field>
-      <Field label="Harga default per dus" hint="Dipakai kalau toko belum pernah beli produk ini.">
-        <MoneyInput value={price} onChange={setPrice} />
-      </Field>
+      <div>
+        <p className="mb-1 font-medium text-gray-700">Harga default</p>
+        {dozensNum > 0 && (
+          <div className="mb-2">
+            <Segmented
+              value={priceMode}
+              onChange={setPriceMode}
+              options={[
+                { value: 'dus', label: 'Isi harga per dus' },
+                { value: 'lusin', label: 'Isi harga per lusin' },
+              ]}
+            />
+          </div>
+        )}
+        {priceMode === 'lusin' && dozensNum > 0 ? (
+          <>
+            <MoneyInput value={perLusin} onChange={(v) => setPrice(v * dozensNum)} aria-label="Harga per lusin" />
+            <p className="mt-1 text-sm text-gray-600">
+              = {formatRupiah(price)} per dus (1 dus = {dozensNum} lusin)
+            </p>
+          </>
+        ) : (
+          <>
+            <MoneyInput value={price} onChange={setPrice} aria-label="Harga per dus" />
+            <p className="mt-1 text-sm text-gray-600">
+              {dozensNum > 0 ? `≈ ${formatRupiah(perLusin)} per lusin · ` : ''}
+              Dipakai kalau toko belum pernah beli produk ini.
+            </p>
+          </>
+        )}
+      </div>
       <Toggle label="Aktif (bisa dipilih di faktur)" checked={active} onChange={setActive} />
       <ErrorText>{error}</ErrorText>
       <Button size="lg" disabled={busy} onClick={save}>
