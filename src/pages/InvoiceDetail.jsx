@@ -166,6 +166,12 @@ export default function InvoiceDetail() {
             </Button>
           </div>
         )}
+
+        {invoice.is_void && (
+          <Button variant="dangerOutline" onClick={() => setSheet('delete')}>
+            Hapus Faktur
+          </Button>
+        )}
       </div>
 
       {sheet === 'pay' && (
@@ -176,6 +182,9 @@ export default function InvoiceDetail() {
       )}
       {sheet === 'void' && (
         <VoidSheet invoice={invoice} onClose={() => setSheet(null)} onDone={() => { setSheet(null); load() }} />
+      )}
+      {sheet === 'delete' && (
+        <DeleteSheet invoice={invoice} onClose={() => setSheet(null)} onDone={() => navigate('/')} />
       )}
     </>
   )
@@ -244,6 +253,32 @@ function DeliverSheet({ invoice, onClose, onDone }) {
       message={`Barang untuk ${invoice.customer_name_snapshot} sudah dikirim hari ini. Ini tidak bisa dibatalkan.`}
       confirmLabel="Ya, sudah terkirim"
       variant="primary"
+      busy={busy}
+      onConfirm={confirm}
+      onClose={onClose}
+    >
+      <ErrorText>{error}</ErrorText>
+    </ConfirmSheet>
+  )
+}
+
+function DeleteSheet({ invoice, onClose, onDone }) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  async function confirm() {
+    setBusy(true)
+    const { error } = await supabase.rpc('delete_void_invoice', { p_invoice_id: invoice.id })
+    setBusy(false)
+    if (error) return setError(`Gagal menghapus: ${error.message}`)
+    onDone()
+  }
+
+  return (
+    <ConfirmSheet
+      title="Hapus faktur ini?"
+      message={`Faktur ${invoice.invoice_number} akan dihapus PERMANEN, termasuk riwayat pembayarannya. Ini tidak bisa dibatalkan.`}
+      confirmLabel="Ya, hapus permanen"
       busy={busy}
       onConfirm={confirm}
       onClose={onClose}
