@@ -27,9 +27,11 @@ export function buildInvoiceDoc({ invoice, items, settings }) {
     customerName: invoice.customer_name_snapshot,
     items: items.map((it) => ({
       name: it.product_name_snapshot,
-      packing: `1 dus = ${formatNumber(it.dozens_per_box_snapshot)} lusin`,
-      qty: formatNumber(it.qty_box),
-      price: formatRupiah(it.unit_price),
+      packing: `1 dus = ${formatNumber(it.box_qty_snapshot)} ${it.unit_label_snapshot}`,
+      // Satu baris bisa dijual per dus ATAU per satuan produk (lusin/pack/dll),
+      // jadi qty & harga disertai satuannya masing-masing, bukan selalu "dus".
+      qty: `${formatNumber(it.qty)} ${it.sold_unit}`,
+      price: `${formatRupiah(it.unit_price)}/${it.sold_unit}`,
       subtotal: formatRupiah(it.line_total),
     })),
     total: formatRupiah(invoice.total),

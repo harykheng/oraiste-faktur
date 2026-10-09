@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { addDays, formatDate, formatRupiah, jakartaToday, termLabel } from '../lib/format.js'
 import {
-  BackButton, Button, Chip, ConfirmSheet, ErrorText, Loading, MoneyInput, NumberInput,
-  PageHeader, SearchInput, Segmented, Sheet, Stepper, Toggle,
+  BackButton, Button, Chip, ConfirmSheet, ErrorText, Field, Loading, MoneyInput, NumberInput,
+  PageHeader, SearchInput, Segmented, Sheet, Stepper, TextInput, Toggle,
 } from '../components/ui.jsx'
 import CustomerForm from '../components/CustomerForm.jsx'
 
@@ -31,11 +31,16 @@ export default function InvoiceNew() {
   const [showNewCustomer, setShowNewCustomer] = useState(false)
 
   // product_id -> { unit_price, last_invoice_date } dari faktur non-void toko ini
+  // (unit_price selalu dinormalisasi per dus oleh get_last_prices).
   const [lastPrices, setLastPrices] = useState({})
-  // product_id -> { qty, price? } ; price hanya diisi kalau diubah manual
+  // product_id -> { unit, qty, price }. unit: 'dus' atau satuan produk
+  // (lusin/pack/dll). qty = jumlah dalam `unit`. price = harga per 1 `unit`.
+  // Baris cuma ada di sini kalau produknya sudah "disentuh" (qty pernah > 0).
   const [lines, setLines] = useState({})
   const [productQuery, setProductQuery] = useState('')
 
+  const today = jakartaToday()
+  const [invoiceDate, setInvoiceDate] = useState(today)
   const [termDays, setTermDays] = useState(0)
   const [delivery, setDelivery] = useState('delivered')
   const [paidInFull, setPaidInFull] = useState(true)
@@ -80,16 +85,44 @@ export default function InvoiceNew() {
     setPaidInFull(Number(days) === 0)
   }
 
-  function priceFor(p) {
-    return lines[p.id]?.price ?? lastPrices[p.id]?.unit_price ?? p.default_price
+  // Harga per dus default (dasar) sebelum dikonversi ke satuan lain.
+  function basePricePerDus(p) {
+    return lastPrices[p.id]?.unit_price ?? p.default_price
   }
 
+  // Qty 0 = produk dibuang dari faktur (baris dihapus, kartu balik ringkas).
   function setQty(p, qty) {
-    setLines((prev) => ({ ...prev, [p.id]: { ...prev[p.id], qty } }))
+    setLines((prev) => {
+      if (!(qty > 0)) {
+        const { [p.id]: _removed, ...rest } = prev
+        return rest
+      }
+      return {
+        ...prev,
+        [p.id]: { unit: 'dus', price: basePricePerDus(p), ...prev[p.id], qty },
+      }
+    })
   }
 
   function setPrice(p, price) {
-    setLines((prev) => ({ ...prev, [p.id]: { qty: 0, ...prev[p.id], price } }))
+    setLines((prev) => ({
+      ...prev,
+      [p.id]: { unit: 'dus', qty: 0, price: basePricePerDus(p), ...prev[p.id], price },
+    }))
+  }
+
+  // Ganti satuan jual baris ini (dus <-> satuan produk), qty & harga
+  // dikonversi supaya nilainya tetap setara (lalu bisa diubah manual lagi).
+  function setUnit(p, unit) {
+    setLines((prev) => {
+      const cur = prev[p.id] ?? { unit: 'dus', qty: 0, price: basePricePerDus(p) }
+      if (cur.unit === unit) return prev
+      const boxQty = p.box_qty
+      const toSatuan = unit !== 'dus'
+      const qty = Math.round(toSatuan ? cur.qty * boxQty : cur.qty / boxQty)
+      const price = Math.round(toSatuan ? cur.price / boxQty : cur.price * boxQty)
+      return { ...prev, [p.id]: { unit, qty, price } }
+    })
   }
 
   // Produk yang pernah dibeli toko ini di atas (terbaru dulu), sisanya urut nama.
@@ -103,7 +136,7 @@ export default function InvoiceNew() {
   }, [products, productQuery, lastPrices])
 
   const selected = (products ?? []).filter((p) => (lines[p.id]?.qty ?? 0) > 0)
-  const total = selected.reduce((sum, p) => sum + lines[p.id].qty * priceFor(p), 0)
+  const total = selected.reduce((sum, p) => sum + lines[p.id].qty * lines[p.id].price, 0)
   const filteredCustomers = (customers ?? []).filter(
     (c) => !customerQuery.trim() || c.name.toLowerCase().includes(customerQuery.trim().toLowerCase()),
   )
@@ -111,19 +144,27 @@ export default function InvoiceNew() {
   async function submit() {
     setSubmitError('')
     if (!customer) return setSubmitError('Pilih toko dulu.')
+    if (!invoiceDate) return setSubmitError('Tanggal faktur wajib diisi.')
+    if (invoiceDate > today) return setSubmitError('Tanggal faktur tidak boleh di masa depan.')
     if (selected.length === 0) return setSubmitError('Pilih minimal 1 produk.')
-    const noPrice = selected.find((p) => !(priceFor(p) > 0))
+    const noPrice = selected.find((p) => !(lines[p.id].price > 0))
     if (noPrice) return setSubmitError(`Harga ${noPrice.name} belum diisi.`)
 
     setSubmitting(true)
     const { data, error } = await supabase.rpc('create_invoice', {
       payload: {
         customer_id: customer.id,
+        invoice_date: invoiceDate,
         term_days: Number(termDays) || 0,
         delivery_status: delivery,
         paid_in_full: paidInFull,
         payment_method: method,
-        items: selected.map((p) => ({ product_id: p.id, qty_box: lines[p.id].qty, unit_price: priceFor(p) })),
+        items: selected.map((p) => ({
+          product_id: p.id,
+          qty: lines[p.id].qty,
+          unit_price: lines[p.id].price,
+          sold_unit: lines[p.id].unit === 'dus' ? 'dus' : p.unit_label,
+        })),
       },
     })
     if (error) {
@@ -140,26 +181,45 @@ export default function InvoiceNew() {
   }
 
   function renderProduct(p) {
-    const qty = lines[p.id]?.qty ?? 0
+    const active = Boolean(lines[p.id])
+    const line = lines[p.id] ?? { unit: 'dus', qty: 0, price: basePricePerDus(p) }
+    const isDus = line.unit === 'dus'
+    const unitLabel = isDus ? 'dus' : p.unit_label
     const last = lastPrices[p.id]
-    const priceSource = lines[p.id]?.price != null ? 'diubah' : last ? 'harga terakhir toko ini' : 'harga normal'
+    const isDefaultPrice = isDus && line.price === basePricePerDus(p)
+    // null = tidak perlu label sumber harga (lagi jual per satuan, bukan per dus).
+    const priceSource = !isDus ? null : isDefaultPrice ? (last ? 'harga terakhir toko ini' : 'harga normal') : 'diubah'
+
     return (
-      <div key={p.id} className={`grid gap-3 rounded-xl border p-3 ${qty > 0 ? 'border-blue-600 bg-blue-50' : 'border-gray-200'}`}>
+      <div key={p.id} className={`grid gap-3 rounded-xl border p-3 ${line.qty > 0 ? 'border-blue-600 bg-blue-50' : 'border-gray-200'}`}>
         <p className="font-bold">{p.name}</p>
         <div className="flex items-center justify-between gap-3">
-          <p className="whitespace-nowrap text-sm text-gray-600">1 dus = {p.dozens_per_box} lusin</p>
-          <Stepper value={qty} onChange={(v) => setQty(p, v)} />
+          <p className="whitespace-nowrap text-sm text-gray-600">
+            1 dus = {p.box_qty} {p.unit_label}
+          </p>
+          <Stepper value={line.qty} onChange={(v) => setQty(p, v)} />
         </div>
-        {qty > 0 ? (
-          <div>
-            <MoneyInput value={priceFor(p)} onChange={(v) => setPrice(p, v)} aria-label={`Harga per dus ${p.name}`} />
-            <p className="mt-1 text-sm text-gray-600">
-              per dus · {priceSource} · subtotal <b>{formatRupiah(qty * priceFor(p))}</b>
-            </p>
+        {active ? (
+          <div className="grid gap-2">
+            <Segmented
+              value={line.unit}
+              onChange={(u) => setUnit(p, u)}
+              options={[
+                { value: 'dus', label: 'Per dus' },
+                { value: p.unit_label, label: `Per ${p.unit_label}` },
+              ]}
+            />
+            <div>
+              <MoneyInput value={line.price} onChange={(v) => setPrice(p, v)} aria-label={`Harga per ${unitLabel} ${p.name}`} />
+              <p className="mt-1 text-sm text-gray-600">
+                per {unitLabel}
+                {priceSource ? ` · ${priceSource}` : ''} · subtotal <b>{formatRupiah(line.qty * line.price)}</b>
+              </p>
+            </div>
           </div>
         ) : (
           <p className="text-sm text-gray-600">
-            {formatRupiah(priceFor(p))}/dus · {priceSource}
+            {formatRupiah(basePricePerDus(p))}/dus · {last ? 'harga terakhir toko ini' : 'harga normal'}
           </p>
         )}
       </div>
@@ -175,7 +235,7 @@ export default function InvoiceNew() {
   }
   if (!customers || !products) return <Loading />
 
-  const dueDate = addDays(jakartaToday(), Number(termDays) || 0)
+  const dueDate = addDays(invoiceDate || today, Number(termDays) || 0)
 
   return (
     <>
@@ -232,6 +292,10 @@ export default function InvoiceNew() {
             </Section>
 
             <Section title="3. Pembayaran & Pengiriman">
+              <Field label="Tanggal faktur">
+                <TextInput type="date" value={invoiceDate} max={today} onChange={(e) => setInvoiceDate(e.target.value)} />
+              </Field>
+
               <div>
                 <p className="mb-1 font-medium text-gray-700">Tempo (hari)</p>
                 <div className="flex gap-2 overflow-x-auto pb-1">
@@ -243,7 +307,7 @@ export default function InvoiceNew() {
                 </div>
                 <NumberInput className="mt-2" value={termDays} onChange={changeTerm} aria-label="Tempo dalam hari" />
                 <p className="mt-1 text-sm text-gray-600">
-                  {Number(termDays) === 0 ? 'Cash, jatuh tempo hari ini' : `Jatuh tempo ${formatDate(dueDate)}`}
+                  {Number(termDays) === 0 ? 'Cash' : 'Tempo'} · Jatuh tempo {formatDate(dueDate)}
                 </p>
               </div>
 

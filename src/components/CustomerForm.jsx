@@ -8,6 +8,7 @@ export default function CustomerForm({ customer, full = false, onSaved }) {
   const [whatsapp, setWhatsapp] = useState(customer?.whatsapp_number ?? '')
   const [termDays, setTermDays] = useState(customer?.default_term_days ?? 0)
   const [address, setAddress] = useState(customer?.address ?? '')
+  const [mapUrl, setMapUrl] = useState(customer?.map_url ?? '')
   const [notes, setNotes] = useState(customer?.notes ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -17,6 +18,20 @@ export default function CustomerForm({ customer, full = false, onSaved }) {
       setError('Nama toko wajib diisi.')
       return
     }
+
+    // Link lokasi: boleh kosong, tapi kalau diisi harus berupa URL yang valid
+    // (tanpa http(s):// di depan juga diterima, nanti ditambahkan otomatis).
+    // `new URL()` di browser terlalu longgar (teks ngasal pun lolos dengan
+    // di-encode), jadi dicek manual: harus ada domain berisi titik, tanpa spasi.
+    let normalizedMapUrl = mapUrl.trim()
+    if (normalizedMapUrl && !/^https?:\/\//i.test(normalizedMapUrl)) {
+      normalizedMapUrl = `https://${normalizedMapUrl}`
+    }
+    if (normalizedMapUrl && !/^https?:\/\/[^\s/]+\.[^\s/]+/i.test(normalizedMapUrl)) {
+      setError('Link lokasi (Maps/Waze) tidak valid.')
+      return
+    }
+
     setBusy(true)
     setError('')
     const row = {
@@ -26,6 +41,7 @@ export default function CustomerForm({ customer, full = false, onSaved }) {
     }
     if (full) {
       row.address = address.trim() || null
+      row.map_url = normalizedMapUrl || null
       row.notes = notes.trim() || null
     }
     const query = customer
@@ -55,6 +71,17 @@ export default function CustomerForm({ customer, full = false, onSaved }) {
         <>
           <Field label="Alamat">
             <TextArea value={address} onChange={(e) => setAddress(e.target.value)} />
+          </Field>
+          <Field label="Link Google Maps / Waze" hint="Tempel link dari tombol Bagikan di app Maps atau Waze.">
+            <TextInput
+              type="url"
+              inputMode="url"
+              autoCapitalize="none"
+              autoCorrect="off"
+              placeholder="https://maps.app.goo.gl/…"
+              value={mapUrl}
+              onChange={(e) => setMapUrl(e.target.value)}
+            />
           </Field>
           <Field label="Catatan">
             <TextArea value={notes} onChange={(e) => setNotes(e.target.value)} />

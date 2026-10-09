@@ -33,7 +33,7 @@ export default function InvoicePreview({ doc }) {
             <div className="min-w-0">
               <p className="font-semibold">{it.name}</p>
               <p className="text-gray-600">
-                {it.packing} · {it.qty} dus × {it.price}
+                {it.packing} · {it.qty} × {it.price}
               </p>
             </div>
             <p className="shrink-0 font-semibold">{it.subtotal}</p>
