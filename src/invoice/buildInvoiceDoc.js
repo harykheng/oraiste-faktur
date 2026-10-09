@@ -27,7 +27,7 @@ export function buildInvoiceDoc({ invoice, items, settings }) {
     customerName: invoice.customer_name_snapshot,
     items: items.map((it) => ({
       name: it.product_name_snapshot,
-      packing: `1 dus = ${formatNumber(it.dozens_per_box_snapshot)} lusin`,
+      packing: `1 dus = ${formatNumber(it.box_qty_snapshot)} ${it.unit_label_snapshot}`,
       qty: formatNumber(it.qty_box),
       price: formatRupiah(it.unit_price),
       subtotal: formatRupiah(it.line_total),

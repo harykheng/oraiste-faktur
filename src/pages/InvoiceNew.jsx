@@ -152,7 +152,9 @@ export default function InvoiceNew() {
       <div key={p.id} className={`grid gap-3 rounded-xl border p-3 ${qty > 0 ? 'border-blue-600 bg-blue-50' : 'border-gray-200'}`}>
         <p className="font-bold">{p.name}</p>
         <div className="flex items-center justify-between gap-3">
-          <p className="whitespace-nowrap text-sm text-gray-600">1 dus = {p.dozens_per_box} lusin</p>
+          <p className="whitespace-nowrap text-sm text-gray-600">
+          1 dus = {p.box_qty} {p.unit_label}
+        </p>
           <Stepper value={qty} onChange={(v) => setQty(p, v)} />
         </div>
         {qty > 0 ? (
