@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
-import { addDays, formatDate, formatRupiah, jakartaToday, priceWithMargin, termLabel } from '../lib/format.js'
+import {
+  MARGIN_TIERS, addDays, formatDate, formatNumber, formatRupiah, jakartaToday, priceWithMargin, termLabel,
+} from '../lib/format.js'
 import {
   BackButton, Button, Chip, ConfirmSheet, ErrorText, Field, Loading, MoneyInput, NumberInput,
   PageHeader, SearchInput, Segmented, Sheet, Stepper, TextInput, Toggle,
@@ -101,6 +103,25 @@ export default function InvoiceNew() {
     return priceInfoFor(p).price
   }
 
+  // Semua pilihan harga per dus untuk produk ini: terakhir toko ini, normal, modal +15/20/25%.
+  function priceOptionsFor(p) {
+    const opts = []
+    const last = lastPrices[p.id]
+    if (last) opts.push({ key: 'last', label: 'Terakhir', source: 'harga terakhir toko ini', perDus: last.unit_price })
+    opts.push({ key: 'normal', label: 'Normal', source: 'harga normal', perDus: p.default_price })
+    if (p.cost_price > 0) {
+      for (const pct of MARGIN_TIERS) {
+        opts.push({ key: `m${pct}`, label: `Modal +${pct}%`, source: `modal +${pct}%`, perDus: priceWithMargin(p.cost_price, pct, p.box_qty) })
+      }
+    }
+    return opts
+  }
+
+  // Harga per 1 satuan jual baris ini (dus, atau satuan produk) dari harga per dus.
+  function priceForUnit(p, perDus, unit) {
+    return unit === 'dus' ? perDus : Math.round(perDus / p.box_qty)
+  }
+
   // Qty 0 = produk dibuang dari faktur (baris dihapus, kartu balik ringkas).
   function setQty(p, qty) {
     setLines((prev) => {
@@ -197,9 +218,11 @@ export default function InvoiceNew() {
     const isDus = line.unit === 'dus'
     const unitLabel = isDus ? 'dus' : p.unit_label
     const base = priceInfoFor(p)
-    const isDefaultPrice = isDus && line.price === base.price
+    const options = priceOptionsFor(p)
+    // Pilihan yang harganya sama dengan harga baris ini (kalau diubah manual: tidak ada).
+    const matched = options.find((o) => priceForUnit(p, o.perDus, line.unit) === line.price)
     // null = tidak perlu label sumber harga (lagi jual per satuan, bukan per dus).
-    const priceSource = !isDus ? null : isDefaultPrice ? base.source : 'diubah'
+    const priceSource = !isDus ? null : line.price === base.price ? base.source : (matched?.source ?? 'diubah')
 
     return (
       <div key={p.id} className={`grid gap-3 rounded-xl border p-3 ${line.qty > 0 ? 'border-blue-600 bg-blue-50' : 'border-gray-200'}`}>
@@ -221,6 +244,25 @@ export default function InvoiceNew() {
               ]}
             />
             <div>
+              <p className="mb-1 text-sm font-semibold text-gray-600">Pilih harga per {unitLabel}</p>
+              <div className="mb-2 grid grid-cols-3 gap-2">
+                {options.map((o) => {
+                  const optPrice = priceForUnit(p, o.perDus, line.unit)
+                  return (
+                    <button
+                      key={o.key}
+                      type="button"
+                      className={`min-h-14 rounded-xl border px-1 text-center active:bg-gray-100 ${
+                        optPrice === line.price ? 'border-blue-700 bg-white ring-2 ring-blue-200' : 'border-gray-300 bg-white'
+                      }`}
+                      onClick={() => setPrice(p, optPrice)}
+                    >
+                      <span className="block whitespace-nowrap text-xs font-semibold text-gray-600">{o.label}</span>
+                      <span className="block whitespace-nowrap font-bold">{formatNumber(optPrice)}</span>
+                    </button>
+                  )
+                })}
+              </div>
               <MoneyInput value={line.price} onChange={(v) => setPrice(p, v)} aria-label={`Harga per ${unitLabel} ${p.name}`} />
               <p className="mt-1 text-sm text-gray-600">
                 per {unitLabel}

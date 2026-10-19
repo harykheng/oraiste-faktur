@@ -34,6 +34,7 @@ export default function InvoiceList() {
     let q = supabase
       .from('invoice_list')
       .select('id, invoice_number, invoice_date, customer_name_snapshot, total, is_void, payment_status, is_overdue, delivery_status')
+      .order('invoice_date', { ascending: false })
       .order('created_at', { ascending: false })
       .range(0, limit) // ambil 1 lebih untuk tahu masih ada data atau tidak
 
