@@ -10,16 +10,24 @@ function isBusy() {
 export function setupPwaUpdates() {
   if (!('serviceWorker' in navigator)) return
 
-  const updateSW = registerSW({
+  // Cuma halaman yang sebelumnya sudah dikontrol service worker yang perlu di-reload.
+  // Pada instalasi pertama, service worker baru "mengambil alih" halaman tanpa ada versi lama.
+  const hadController = Boolean(navigator.serviceWorker.controller)
+  let reloading = false
+
+  // Service worker versi baru sudah aktif: muat ulang supaya kode terbaru dipakai.
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloading) return
+    const apply = () => {
+      if (isBusy()) return setTimeout(apply, 2000)
+      reloading = true
+      window.location.reload()
+    }
+    apply()
+  })
+
+  registerSW({
     immediate: true,
-    // Versi baru sudah diunduh dan siap dipakai: terapkan begitu aman.
-    onNeedRefresh() {
-      const apply = () => {
-        if (isBusy()) return setTimeout(apply, 2000)
-        updateSW(true) // aktifkan versi baru lalu reload
-      }
-      apply()
-    },
     onRegisteredSW(_url, registration) {
       if (!registration) return
       const check = () => registration.update().catch(() => {})
