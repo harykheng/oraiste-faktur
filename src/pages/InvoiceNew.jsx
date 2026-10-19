@@ -99,7 +99,7 @@ export default function InvoiceNew() {
     if (last) return { price: last.unit_price, source: 'harga terakhir toko ini' }
     const pct = customer?.default_margin_percent
     if (pct && p.cost_price > 0) {
-      return { price: priceWithMargin(p.cost_price, pct, p.box_qty), source: `modal +${pct}%` }
+      return { price: priceWithMargin(p.cost_price, pct, p.box_qty, p.price_round_step ?? undefined), source: `modal +${pct}%` }
     }
     return { price: p.default_price, source: 'harga normal' }
   }
@@ -116,7 +116,7 @@ export default function InvoiceNew() {
     opts.push({ key: 'normal', label: 'Normal', source: 'harga normal', perDus: p.default_price })
     if (p.cost_price > 0) {
       for (const pct of MARGIN_TIERS) {
-        opts.push({ key: `m${pct}`, label: `Modal +${pct}%`, source: `modal +${pct}%`, perDus: priceWithMargin(p.cost_price, pct, p.box_qty) })
+        opts.push({ key: `m${pct}`, label: `Modal +${pct}%`, source: `modal +${pct}%`, perDus: priceWithMargin(p.cost_price, pct, p.box_qty, p.price_round_step ?? undefined) })
       }
     }
     return opts
@@ -305,7 +305,7 @@ export default function InvoiceNew() {
           {customer ? (
             <div className="flex items-center justify-between gap-3 rounded-xl bg-blue-50 p-3">
               <div className="min-w-0">
-                <p className="truncate text-lg font-bold">{customer.name}</p>
+                <p className="break-words text-lg font-bold">{customer.name}</p>
                 <p className="text-sm text-gray-600">{termLabel(customer.default_term_days)}</p>
               </div>
               <Button variant="secondary" onClick={() => setCustomer(null)}>

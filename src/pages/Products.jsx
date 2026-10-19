@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
-import { MARGIN_TIERS, formatNumber, formatRupiah, priceWithMargin } from '../lib/format.js'
+import { MARGIN_TIERS, PRICE_ROUND_STEP, ROUND_STEP_OPTIONS, formatNumber, formatRupiah, priceWithMargin } from '../lib/format.js'
 import {
   Badge, Button, ErrorText, Field, Loading, MoneyInput, NumberInput, PageHeader, Select,
   Sheet, TextArea, TextInput, Toggle,
@@ -88,6 +88,7 @@ function ProductForm({ product, unitOptions, onSaved }) {
   // price & costPrice selalu per dus — ini yang disimpan ke database.
   const [price, setPrice] = useState(product?.default_price ?? 0)
   const [costPrice, setCostPrice] = useState(product?.cost_price ?? 0)
+  const [roundStep, setRoundStep] = useState(product?.price_round_step ?? PRICE_ROUND_STEP)
   const [notes, setNotes] = useState(product?.notes ?? '')
   const [active, setActive] = useState(product?.is_active ?? true)
   const [busy, setBusy] = useState(false)
@@ -124,6 +125,10 @@ function ProductForm({ product, unitOptions, onSaved }) {
       cost_price: costPrice > 0 ? costPrice : null,
       notes: notes.trim() || null,
       is_active: active,
+    }
+    // Hanya dikirim kalau diubah, supaya produk lain tetap bisa disimpan walau migration 0009 belum jalan.
+    if (roundStep !== (product?.price_round_step ?? PRICE_ROUND_STEP)) {
+      row.price_round_step = roundStep === PRICE_ROUND_STEP ? null : roundStep
     }
     const { error } = product
       ? await supabase.from('products').update(row).eq('id', product.id)
@@ -187,11 +192,23 @@ function ProductForm({ product, unitOptions, onSaved }) {
         </Field>
       )}
       {costPrice > 0 && (
+        <Field label="Pembulatan harga produk ini" hint="Pengecualian: ubah kalau produk ini tidak cocok dibulatkan ke 500.">
+          <Select value={roundStep} onChange={(e) => setRoundStep(Number(e.target.value))}>
+            {ROUND_STEP_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      )}
+      {costPrice > 0 && (
         <div>
-          <p className="mb-1 font-medium text-gray-700">Isi harga jual dari modal (dibulatkan ke atas)</p>
+          <p className="mb-1 font-medium text-gray-700">Isi harga jual dari modal
+            {roundStep === 1 ? ' (tanpa pembulatan)' : ` (dibulatkan ke atas, kelipatan ${formatNumber(roundStep)})`}</p>
           <div className="grid grid-cols-3 gap-2 max-[359px]:grid-cols-2">
             {MARGIN_TIERS.map((pct) => {
-              const tierPrice = priceWithMargin(costPrice, pct, boxQtyNum)
+              const tierPrice = priceWithMargin(costPrice, pct, boxQtyNum, roundStep)
               const tierPerUnit = boxQtyNum > 0 ? tierPrice / boxQtyNum : null
               return (
                 <button

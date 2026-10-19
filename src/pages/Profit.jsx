@@ -159,7 +159,7 @@ function Breakdown({ title, rows, nameKey }) {
         return (
           <div key={r[nameKey]} className="flex items-start justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4">
             <div className="min-w-0">
-              <p className="truncate font-bold">{r[nameKey]}</p>
+              <p className="break-words font-bold">{r[nameKey]}</p>
               <p className="text-sm text-gray-600">Penjualan {formatRupiah(r.sales)}</p>
             </div>
             <div className="shrink-0 text-right">

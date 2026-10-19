@@ -76,6 +76,8 @@ Stack: React + Vite + Tailwind CSS + Supabase, deploy di Vercel.
 - Nomor faktur `{prefix}/{YYMM}/{0001}`, urut per bulan (Asia/Jakarta), dibuat atomik di server.
 - Harga otomatis memakai harga terakhir untuk toko & produk itu (faktur batal diabaikan).
   Kalau toko belum pernah membeli produk itu, harga default produk yang dipakai.
+- Harga jual dari modal (+15/20/25%) dibulatkan ke atas ke kelipatan 500 per satuan. Produk tertentu bisa
+  dikecualikan (kelipatan 100, 1.000, atau tanpa pembulatan) di form Produk (migration `0009`).
 - Tab **Laba**: laba kotor = penjualan − harga modal produk. Modal per dus disimpan di tiap baris faktur
   saat faktur dibuat (migration `0008`), jadi laporan lama tidak berubah kalau modal produk diubah.
   Barang tanpa harga modal tidak ikut dihitung; faktur dibatalkan tidak dihitung; biaya operasional belum termasuk.
