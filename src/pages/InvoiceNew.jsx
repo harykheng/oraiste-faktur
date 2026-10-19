@@ -92,7 +92,7 @@ export default function InvoiceNew() {
     if (last) return { price: last.unit_price, source: 'harga terakhir toko ini' }
     const pct = customer?.default_margin_percent
     if (pct && p.cost_price > 0) {
-      return { price: priceWithMargin(p.cost_price, pct), source: `modal +${pct}%` }
+      return { price: priceWithMargin(p.cost_price, pct, p.box_qty), source: `modal +${pct}%` }
     }
     return { price: p.default_price, source: 'harga normal' }
   }
