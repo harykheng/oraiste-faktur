@@ -12,6 +12,7 @@ const FILTERS = [
   { key: 'unpaid', label: 'Belum Lunas' },
   { key: 'overdue', label: 'Lewat Tempo' },
   { key: 'pending', label: 'Belum Dikirim' },
+  { key: 'void', label: 'Dibatalkan' },
 ]
 
 export default function InvoiceList() {
@@ -38,9 +39,11 @@ export default function InvoiceList() {
       .order('created_at', { ascending: false })
       .range(0, limit) // ambil 1 lebih untuk tahu masih ada data atau tidak
 
+    // Faktur dibatalkan cuma muncul di filter "Dibatalkan".
+    q = q.eq('is_void', filter === 'void')
     if (filter === 'unpaid') q = q.in('payment_status', ['unpaid', 'partial'])
     if (filter === 'overdue') q = q.eq('is_overdue', true)
-    if (filter === 'pending') q = q.eq('delivery_status', 'pending').eq('is_void', false)
+    if (filter === 'pending') q = q.eq('delivery_status', 'pending')
     if (debouncedSearch) q = q.ilike('customer_name_snapshot', `%${debouncedSearch}%`)
 
     q.then(({ data, error }) => {
@@ -83,7 +86,7 @@ export default function InvoiceList() {
 
         <ErrorText>{error}</ErrorText>
         {invoices === null && !error && <Loading />}
-        {invoices?.length === 0 && <p className="p-6 text-center text-gray-500">Belum ada faktur.</p>}
+        {invoices?.length === 0 && <p className="p-6 text-center text-gray-500">{filter === 'void' ? 'Tidak ada faktur yang dibatalkan.' : 'Belum ada faktur.'}</p>}
 
         {invoices?.map((inv) => (
           <Link
@@ -93,14 +96,15 @@ export default function InvoiceList() {
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="truncate text-lg font-bold">{inv.customer_name_snapshot}</p>
-                <p className="text-sm text-gray-500">
-                  {inv.invoice_number} · {formatDate(inv.invoice_date)}
-                </p>
+                <p className="break-words text-lg font-bold">{inv.customer_name_snapshot}</p>
+                <p className="text-sm text-gray-500">{inv.invoice_number}</p>
               </div>
-              <p className={`shrink-0 text-lg font-bold ${inv.is_void ? 'text-gray-500 line-through' : ''}`}>
-                {formatRupiah(inv.total)}
-              </p>
+              <div className="shrink-0 text-right">
+                <p className={`text-lg font-bold ${inv.is_void ? 'text-gray-500 line-through' : ''}`}>
+                  {formatRupiah(inv.total)}
+                </p>
+                <p className="font-bold text-gray-800">{formatDate(inv.invoice_date)}</p>
+              </div>
             </div>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {invoiceBadges(inv).map((b) => (

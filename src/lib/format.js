@@ -24,10 +24,18 @@ export const MARGIN_TIERS = [15, 20, 25]
 // Hitungan pakai bilangan bulat (bukan desimal) supaya tidak meleset karena floating point.
 export const PRICE_ROUND_STEP = 500
 
-export function priceWithMargin(costPerDus, percent, boxQty = 0) {
+// Pengecualian per produk (kolom products.price_round_step); kosong = PRICE_ROUND_STEP.
+export const ROUND_STEP_OPTIONS = [
+  { value: 500, label: 'Kelipatan 500 (normal)' },
+  { value: 100, label: 'Kelipatan 100' },
+  { value: 1000, label: 'Kelipatan 1.000' },
+  { value: 1, label: 'Tanpa pembulatan' },
+]
+
+export function priceWithMargin(costPerDus, percent, boxQty = 0, step = PRICE_ROUND_STEP) {
   const qty = Number(boxQty) > 0 ? Number(boxQty) : 1
   const numerator = Number(costPerDus) * (100 + percent) // = harga per dus x 100
-  const perUnit = Math.ceil(numerator / (qty * 100 * PRICE_ROUND_STEP)) * PRICE_ROUND_STEP
+  const perUnit = Math.ceil(numerator / (qty * 100 * step)) * step
   return perUnit * qty
 }
 
@@ -70,4 +78,21 @@ export function formatTimestampDate(ts, long = false) {
 
 export function termLabel(days) {
   return Number(days) === 0 ? 'Cash' : `Tempo ${days} hari`
+}
+
+// "2026-10-19" -> "2026-10-01"
+export function startOfMonth(isoDate) {
+  return `${isoDate.slice(0, 7)}-01`
+}
+
+// "2026-10-19" -> "2026-10-31"
+export function endOfMonth(isoDate) {
+  const [y, m] = isoDate.split('-').map(Number)
+  return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10)
+}
+
+// Geser bulan, hasilnya tanggal 1: ("2026-01-15", -1) -> "2025-12-01"
+export function addMonths(isoDate, months) {
+  const [y, m] = isoDate.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1 + months, 1)).toISOString().slice(0, 10)
 }
