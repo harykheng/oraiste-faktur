@@ -71,3 +71,20 @@ export function formatTimestampDate(ts, long = false) {
 export function termLabel(days) {
   return Number(days) === 0 ? 'Cash' : `Tempo ${days} hari`
 }
+
+// "2026-10-19" -> "2026-10-01"
+export function startOfMonth(isoDate) {
+  return `${isoDate.slice(0, 7)}-01`
+}
+
+// "2026-10-19" -> "2026-10-31"
+export function endOfMonth(isoDate) {
+  const [y, m] = isoDate.split('-').map(Number)
+  return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10)
+}
+
+// Geser bulan, hasilnya tanggal 1: ("2026-01-15", -1) -> "2025-12-01"
+export function addMonths(isoDate, months) {
+  const [y, m] = isoDate.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1 + months, 1)).toISOString().slice(0, 10)
+}

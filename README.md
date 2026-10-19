@@ -76,6 +76,9 @@ Stack: React + Vite + Tailwind CSS + Supabase, deploy di Vercel.
 - Nomor faktur `{prefix}/{YYMM}/{0001}`, urut per bulan (Asia/Jakarta), dibuat atomik di server.
 - Harga otomatis memakai harga terakhir untuk toko & produk itu (faktur batal diabaikan).
   Kalau toko belum pernah membeli produk itu, harga default produk yang dipakai.
+- Tab **Laba**: laba kotor = penjualan − harga modal produk. Modal per dus disimpan di tiap baris faktur
+  saat faktur dibuat (migration `0008`), jadi laporan lama tidak berubah kalau modal produk diubah.
+  Barang tanpa harga modal tidak ikut dihitung; faktur dibatalkan tidak dihitung; biaya operasional belum termasuk.
 - Status bayar (Lunas / Sebagian / Belum Bayar / Lewat Tempo) dihitung dari tabel pembayaran.
 
 ## Struktur kode
@@ -87,7 +90,7 @@ src/
   pages/          layar-layar app
   invoice/        buildInvoiceDoc (data → teks siap tampil) + preview layar
   pdf/            template PDF A5 + renderer
-supabase/migrations/0001_init.sql   skema, RPC, view, RLS
+supabase/migrations/               skema, RPC, view, RLS (jalankan berurutan 0001, 0002, …)
 ```
 
 Template PDF (`src/pdf/InvoiceA5.jsx`) hanya merender objek dari

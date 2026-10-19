@@ -9,6 +9,7 @@ import InvoiceNew from './pages/InvoiceNew.jsx'
 import InvoiceDetail from './pages/InvoiceDetail.jsx'
 import Customers from './pages/Customers.jsx'
 import Products from './pages/Products.jsx'
+import Profit from './pages/Profit.jsx'
 import Settings from './pages/Settings.jsx'
 
 export default function App() {
@@ -31,6 +32,7 @@ export default function App() {
           <Route index element={<InvoiceList />} />
           <Route path="toko" element={<Customers />} />
           <Route path="produk" element={<Products />} />
+          <Route path="laba" element={<Profit />} />
           <Route path="pengaturan" element={<Settings />} />
         </Route>
         <Route path="faktur/baru" element={<InvoiceNew />} />
