@@ -8,8 +8,8 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      // 'prompt' + registrasi manual di src/main.jsx, supaya update bisa dicek saat app
-      // kembali aktif dan diterapkan di waktu yang aman (lihat src/pwa.js).
+      // Registrasi manual di src/main.jsx, supaya update bisa dicek saat app kembali aktif
+      // dan halaman di-reload di waktu yang aman (lihat src/pwa.js).
       registerType: 'prompt',
       injectRegister: false,
       includeAssets: ['apple-touch-icon.png', 'favicon.png'],
@@ -31,6 +31,11 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Versi baru langsung aktif (tidak menunggu semua tab/app ditutup). Tanpa ini, refresh
+        // biasa di HP tetap menampilkan versi lama karena service worker baru cuma "menunggu".
+        // Halaman yang sedang terbuka di-reload oleh src/pwa.js begitu versi baru aktif.
+        skipWaiting: true,
+        clientsClaim: true,
         // Chunk @react-pdf/renderer ~1,2 MB; tetap di-cache supaya PDF cepat dibuat.
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
       },
