@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
-import { addDays, formatDate, formatRupiah, jakartaToday, priceWithMargin, termLabel } from '../lib/format.js'
+import {
+  MARGIN_TIERS, addDays, formatDate, formatNumber, formatRupiah, jakartaToday, priceWithMargin, termLabel,
+} from '../lib/format.js'
 import {
   BackButton, Button, Chip, ConfirmSheet, ErrorText, Field, Loading, MoneyInput, NumberInput,
   PageHeader, SearchInput, Segmented, Sheet, Stepper, TextInput, Toggle,
@@ -33,6 +35,9 @@ export default function InvoiceNew() {
   // product_id -> { unit_price, last_invoice_date } dari faktur non-void toko ini
   // (unit_price selalu dinormalisasi per dus oleh get_last_prices).
   const [lastPrices, setLastPrices] = useState({})
+  // Daftar produk baru ditampilkan setelah harga terakhir toko siap, supaya urutannya
+  // tidak berpindah di bawah jari dan harga awal yang terisi sudah benar.
+  const [pricesReady, setPricesReady] = useState(false)
   // product_id -> { unit, qty, price }. unit: 'dus' atau satuan produk
   // (lusin/pack/dll). qty = jumlah dalam `unit`. price = harga per 1 `unit`.
   // Baris cuma ada di sini kalau produknya sudah "disentuh" (qty pernah > 0).
@@ -69,15 +74,17 @@ export default function InvoiceNew() {
     customerIdRef.current = c.id
     setLines({})
     setLastPrices({})
+    setPricesReady(false)
     setProductQuery('')
     changeTerm(c.default_term_days)
     const { data, error } = await supabase.rpc('get_last_prices', { p_customer_id: c.id })
     if (customerIdRef.current !== c.id) return // toko sudah diganti lagi
     if (error) {
       setLoadError(`Gagal memuat harga terakhir: ${error.message}`)
-      return
+    } else {
+      setLastPrices(Object.fromEntries(data.map((r) => [r.product_id, r])))
     }
-    setLastPrices(Object.fromEntries(data.map((r) => [r.product_id, r])))
+    setPricesReady(true) // kalau gagal pun tetap lanjut dengan harga normal
   }
 
   function changeTerm(days) {
@@ -99,6 +106,25 @@ export default function InvoiceNew() {
 
   function basePricePerDus(p) {
     return priceInfoFor(p).price
+  }
+
+  // Semua pilihan harga per dus untuk produk ini: terakhir toko ini, normal, modal +15/20/25%.
+  function priceOptionsFor(p) {
+    const opts = []
+    const last = lastPrices[p.id]
+    if (last) opts.push({ key: 'last', label: 'Terakhir', source: 'harga terakhir toko ini', perDus: last.unit_price })
+    opts.push({ key: 'normal', label: 'Normal', source: 'harga normal', perDus: p.default_price })
+    if (p.cost_price > 0) {
+      for (const pct of MARGIN_TIERS) {
+        opts.push({ key: `m${pct}`, label: `Modal +${pct}%`, source: `modal +${pct}%`, perDus: priceWithMargin(p.cost_price, pct, p.box_qty) })
+      }
+    }
+    return opts
+  }
+
+  // Harga per 1 satuan jual baris ini (dus, atau satuan produk) dari harga per dus.
+  function priceForUnit(p, perDus, unit) {
+    return unit === 'dus' ? perDus : Math.round(perDus / p.box_qty)
   }
 
   // Qty 0 = produk dibuang dari faktur (baris dihapus, kartu balik ringkas).
@@ -197,15 +223,17 @@ export default function InvoiceNew() {
     const isDus = line.unit === 'dus'
     const unitLabel = isDus ? 'dus' : p.unit_label
     const base = priceInfoFor(p)
-    const isDefaultPrice = isDus && line.price === base.price
+    const options = priceOptionsFor(p)
+    // Pilihan yang harganya sama dengan harga baris ini (kalau diubah manual: tidak ada).
+    const matched = options.find((o) => priceForUnit(p, o.perDus, line.unit) === line.price)
     // null = tidak perlu label sumber harga (lagi jual per satuan, bukan per dus).
-    const priceSource = !isDus ? null : isDefaultPrice ? base.source : 'diubah'
+    const priceSource = !isDus ? null : line.price === base.price ? base.source : (matched?.source ?? 'diubah')
 
     return (
       <div key={p.id} className={`grid gap-3 rounded-xl border p-3 ${line.qty > 0 ? 'border-blue-600 bg-blue-50' : 'border-gray-200'}`}>
         <p className="font-bold">{p.name}</p>
-        <div className="flex items-center justify-between gap-3">
-          <p className="whitespace-nowrap text-sm text-gray-600">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          <p className="text-sm text-gray-600">
             1 dus = {p.box_qty} {p.unit_label}
           </p>
           <Stepper value={line.qty} onChange={(v) => setQty(p, v)} />
@@ -221,6 +249,25 @@ export default function InvoiceNew() {
               ]}
             />
             <div>
+              <p className="mb-1 text-sm font-semibold text-gray-600">Pilih harga per {unitLabel}</p>
+              <div className="mb-2 grid grid-cols-2 gap-2 min-[430px]:grid-cols-3">
+                {options.map((o) => {
+                  const optPrice = priceForUnit(p, o.perDus, line.unit)
+                  return (
+                    <button
+                      key={o.key}
+                      type="button"
+                      className={`min-h-14 rounded-xl border px-0.5 text-center active:bg-gray-100 ${
+                        optPrice === line.price ? 'border-blue-700 bg-white ring-2 ring-blue-200' : 'border-gray-300 bg-white'
+                      }`}
+                      onClick={() => setPrice(p, optPrice)}
+                    >
+                      <span className="block whitespace-nowrap text-xs font-semibold text-gray-600">{o.label}</span>
+                      <span className="block whitespace-nowrap text-[0.95rem] font-bold">{formatNumber(optPrice)}</span>
+                    </button>
+                  )
+                })}
+              </div>
               <MoneyInput value={line.price} onChange={(v) => setPrice(p, v)} aria-label={`Harga per ${unitLabel} ${p.name}`} />
               <p className="mt-1 text-sm text-gray-600">
                 per {unitLabel}
@@ -295,11 +342,12 @@ export default function InvoiceNew() {
           <>
             <Section title="2. Produk">
               <SearchInput placeholder="Cari produk…" value={productQuery} onChange={(e) => setProductQuery(e.target.value)} />
-              {products.length === 0 && <p className="text-gray-500">Belum ada produk aktif. Tambah dulu di menu Produk.</p>}
-              {boughtBefore.length > 0 && <p className="text-sm font-semibold text-gray-500">Pernah dibeli toko ini</p>}
-              {boughtBefore.map(renderProduct)}
-              {boughtBefore.length > 0 && others.length > 0 && <p className="text-sm font-semibold text-gray-500">Produk lain</p>}
-              {others.map(renderProduct)}
+              {!pricesReady && <Loading text="Memuat harga terakhir toko…" />}
+              {pricesReady && products.length === 0 && <p className="text-gray-500">Belum ada produk aktif. Tambah dulu di menu Produk.</p>}
+              {pricesReady && boughtBefore.length > 0 && <p className="text-sm font-semibold text-gray-500">Pernah dibeli toko ini</p>}
+              {pricesReady && boughtBefore.map(renderProduct)}
+              {pricesReady && boughtBefore.length > 0 && others.length > 0 && <p className="text-sm font-semibold text-gray-500">Produk lain</p>}
+              {pricesReady && others.map(renderProduct)}
             </Section>
 
             <Section title="3. Pembayaran & Pengiriman">
