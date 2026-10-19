@@ -18,9 +18,17 @@ export function formatRupiah(n) {
 // Pilihan persen untung di atas harga modal (dipakai di form Produk & Toko).
 export const MARGIN_TIERS = [15, 20, 25]
 
-// Harga jual = modal + persen untung, dibulatkan ke Rp 100 terdekat supaya rapi.
-export function priceWithMargin(costPrice, percent) {
-  return Math.round((Number(costPrice) * (1 + percent / 100)) / 100) * 100
+// Harga jual = modal + persen untung, DIBULATKAN KE ATAS per satuan (lusin/pack/dll)
+// ke kelipatan 500 (mis. 19.251 -> 19.500, 30.088 -> 30.500), lalu dikali isi per dus
+// supaya harga per satuan tetap rapi.
+// Hitungan pakai bilangan bulat (bukan desimal) supaya tidak meleset karena floating point.
+export const PRICE_ROUND_STEP = 500
+
+export function priceWithMargin(costPerDus, percent, boxQty = 0) {
+  const qty = Number(boxQty) > 0 ? Number(boxQty) : 1
+  const numerator = Number(costPerDus) * (100 + percent) // = harga per dus x 100
+  const perUnit = Math.ceil(numerator / (qty * 100 * PRICE_ROUND_STEP)) * PRICE_ROUND_STEP
+  return perUnit * qty
 }
 
 // "Rp 1.250.000" / "1250000" -> 1250000

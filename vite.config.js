@@ -8,7 +8,10 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt' + registrasi manual di src/main.jsx, supaya update bisa dicek saat app
+      // kembali aktif dan diterapkan di waktu yang aman (lihat src/pwa.js).
+      registerType: 'prompt',
+      injectRegister: false,
       includeAssets: ['apple-touch-icon.png', 'favicon.png'],
       manifest: {
         name: 'ORAISTE Faktur',

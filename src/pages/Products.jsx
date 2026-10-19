@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
-import { MARGIN_TIERS, formatRupiah, priceWithMargin } from '../lib/format.js'
+import { MARGIN_TIERS, formatNumber, formatRupiah, priceWithMargin } from '../lib/format.js'
 import {
   Badge, Button, ErrorText, Field, Loading, MoneyInput, NumberInput, PageHeader, Select,
   Sheet, TextArea, TextInput, Toggle,
@@ -188,10 +188,11 @@ function ProductForm({ product, unitOptions, onSaved }) {
       )}
       {costPrice > 0 && (
         <div>
-          <p className="mb-1 font-medium text-gray-700">Isi harga jual dari modal</p>
+          <p className="mb-1 font-medium text-gray-700">Isi harga jual dari modal (dibulatkan ke atas)</p>
           <div className="grid grid-cols-3 gap-2">
             {MARGIN_TIERS.map((pct) => {
-              const tierPrice = priceWithMargin(costPrice, pct)
+              const tierPrice = priceWithMargin(costPrice, pct, boxQtyNum)
+              const tierPerUnit = boxQtyNum > 0 ? tierPrice / boxQtyNum : null
               return (
                 <button
                   key={pct}
@@ -202,7 +203,12 @@ function ProductForm({ product, unitOptions, onSaved }) {
                   onClick={() => setPrice(tierPrice)}
                 >
                   <span className="block font-bold">+{pct}%</span>
-                  <span className="block text-xs text-gray-600">{formatRupiah(tierPrice)}</span>
+                  {tierPerUnit !== null && (
+                    <span className="block whitespace-nowrap text-sm font-semibold">
+                      {formatNumber(tierPerUnit)}/{unitLabelTrimmed}
+                    </span>
+                  )}
+                  <span className="block whitespace-nowrap text-xs text-gray-600">{formatNumber(tierPrice)}/dus</span>
                 </button>
               )
             })}
