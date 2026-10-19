@@ -189,7 +189,7 @@ function ProductForm({ product, unitOptions, onSaved }) {
       {costPrice > 0 && (
         <div>
           <p className="mb-1 font-medium text-gray-700">Isi harga jual dari modal (dibulatkan ke atas)</p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2 max-[359px]:grid-cols-2">
             {MARGIN_TIERS.map((pct) => {
               const tierPrice = priceWithMargin(costPrice, pct, boxQtyNum)
               const tierPerUnit = boxQtyNum > 0 ? tierPrice / boxQtyNum : null
@@ -197,7 +197,7 @@ function ProductForm({ product, unitOptions, onSaved }) {
                 <button
                   key={pct}
                   type="button"
-                  className={`min-h-14 rounded-xl border px-1 text-center active:bg-gray-100 ${
+                  className={`min-h-14 rounded-xl border px-0.5 text-center active:bg-gray-100 ${
                     price === tierPrice ? 'border-blue-700 bg-blue-50' : 'border-gray-300 bg-white'
                   }`}
                   onClick={() => setPrice(tierPrice)}

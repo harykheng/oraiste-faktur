@@ -15,3 +15,18 @@ button {
   cursor: pointer;
   touch-action: manipulation;
 }
+
+@layer base {
+  /* Kolom grid boleh mengecil sampai selebar layar. Tanpa ini, satu teks panjang
+     (mis. nama toko) memaksa seluruh halaman jadi lebih lebar dari layar HP. */
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* iOS Safari memperbesar halaman otomatis kalau teks input < 16px. */
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1rem);
+  }
+}
