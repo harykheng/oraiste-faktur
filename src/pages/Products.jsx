@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
-import { formatRupiah } from '../lib/format.js'
+import { MARGIN_TIERS, formatRupiah, priceWithMargin } from '../lib/format.js'
 import {
   Badge, Button, ErrorText, Field, Loading, MoneyInput, NumberInput, PageHeader, Select,
   Sheet, TextArea, TextInput, Toggle,
@@ -185,6 +185,30 @@ function ProductForm({ product, unitOptions, onSaved }) {
         <Field label={`Harga modal per ${unitLabelTrimmed}`} hint="Saling terhubung dengan harga modal per dus di atas.">
           <MoneyInput value={costPerUnit} onChange={(v) => setCostPrice(v * boxQtyNum)} />
         </Field>
+      )}
+      {costPrice > 0 && (
+        <div>
+          <p className="mb-1 font-medium text-gray-700">Isi harga jual dari modal</p>
+          <div className="grid grid-cols-3 gap-2">
+            {MARGIN_TIERS.map((pct) => {
+              const tierPrice = priceWithMargin(costPrice, pct)
+              return (
+                <button
+                  key={pct}
+                  type="button"
+                  className={`min-h-14 rounded-xl border px-1 text-center active:bg-gray-100 ${
+                    price === tierPrice ? 'border-blue-700 bg-blue-50' : 'border-gray-300 bg-white'
+                  }`}
+                  onClick={() => setPrice(tierPrice)}
+                >
+                  <span className="block font-bold">+{pct}%</span>
+                  <span className="block text-xs text-gray-600">{formatRupiah(tierPrice)}</span>
+                </button>
+              )
+            })}
+          </div>
+          <p className="mt-1 text-sm text-gray-500">Tap salah satu untuk mengisi “Harga default per dus” di atas.</p>
+        </div>
       )}
       {margin !== null && (
         <p className="-mt-2 text-sm text-gray-600">
