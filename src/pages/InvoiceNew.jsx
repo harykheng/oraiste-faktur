@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
-import { addDays, formatDate, formatRupiah, jakartaToday, termLabel } from '../lib/format.js'
+import { addDays, formatDate, formatRupiah, jakartaToday, priceWithMargin, termLabel } from '../lib/format.js'
 import {
   BackButton, Button, Chip, ConfirmSheet, ErrorText, Field, Loading, MoneyInput, NumberInput,
   PageHeader, SearchInput, Segmented, Sheet, Stepper, TextInput, Toggle,
@@ -85,9 +85,20 @@ export default function InvoiceNew() {
     setPaidInFull(Number(days) === 0)
   }
 
-  // Harga per dus default (dasar) sebelum dikonversi ke satuan lain.
+  // Harga per dus dasar (sebelum dikonversi ke satuan lain) + asalnya.
+  // Urutan: harga terakhir toko ini > modal + persen toko ini > harga default produk.
+  function priceInfoFor(p) {
+    const last = lastPrices[p.id]
+    if (last) return { price: last.unit_price, source: 'harga terakhir toko ini' }
+    const pct = customer?.default_margin_percent
+    if (pct && p.cost_price > 0) {
+      return { price: priceWithMargin(p.cost_price, pct), source: `modal +${pct}%` }
+    }
+    return { price: p.default_price, source: 'harga normal' }
+  }
+
   function basePricePerDus(p) {
-    return lastPrices[p.id]?.unit_price ?? p.default_price
+    return priceInfoFor(p).price
   }
 
   // Qty 0 = produk dibuang dari faktur (baris dihapus, kartu balik ringkas).
@@ -185,10 +196,10 @@ export default function InvoiceNew() {
     const line = lines[p.id] ?? { unit: 'dus', qty: 0, price: basePricePerDus(p) }
     const isDus = line.unit === 'dus'
     const unitLabel = isDus ? 'dus' : p.unit_label
-    const last = lastPrices[p.id]
-    const isDefaultPrice = isDus && line.price === basePricePerDus(p)
+    const base = priceInfoFor(p)
+    const isDefaultPrice = isDus && line.price === base.price
     // null = tidak perlu label sumber harga (lagi jual per satuan, bukan per dus).
-    const priceSource = !isDus ? null : isDefaultPrice ? (last ? 'harga terakhir toko ini' : 'harga normal') : 'diubah'
+    const priceSource = !isDus ? null : isDefaultPrice ? base.source : 'diubah'
 
     return (
       <div key={p.id} className={`grid gap-3 rounded-xl border p-3 ${line.qty > 0 ? 'border-blue-600 bg-blue-50' : 'border-gray-200'}`}>
@@ -219,7 +230,7 @@ export default function InvoiceNew() {
           </div>
         ) : (
           <p className="text-sm text-gray-600">
-            {formatRupiah(basePricePerDus(p))}/dus · {last ? 'harga terakhir toko ini' : 'harga normal'}
+            {formatRupiah(base.price)}/dus · {base.source}
           </p>
         )}
       </div>

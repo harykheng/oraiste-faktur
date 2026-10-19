@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase.js'
-import { Button, ErrorText, Field, NumberInput, TextArea, TextInput } from './ui.jsx'
+import { MARGIN_TIERS } from '../lib/format.js'
+import { Button, ErrorText, Field, NumberInput, Segmented, TextArea, TextInput } from './ui.jsx'
 
 // full=false: form singkat (nama, WA, tempo) untuk "Toko Baru" di layar Buat Faktur.
 export default function CustomerForm({ customer, full = false, onSaved }) {
@@ -10,6 +11,8 @@ export default function CustomerForm({ customer, full = false, onSaved }) {
   const [address, setAddress] = useState(customer?.address ?? '')
   const [mapUrl, setMapUrl] = useState(customer?.map_url ?? '')
   const [notes, setNotes] = useState(customer?.notes ?? '')
+  // 'none' atau '15' / '20' / '25' (string supaya cocok dengan Segmented).
+  const [margin, setMargin] = useState(customer?.default_margin_percent ? String(customer.default_margin_percent) : 'none')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -42,6 +45,7 @@ export default function CustomerForm({ customer, full = false, onSaved }) {
     if (full) {
       row.address = address.trim() || null
       row.map_url = normalizedMapUrl || null
+      row.default_margin_percent = margin === 'none' ? null : Number(margin)
       row.notes = notes.trim() || null
     }
     const query = customer
@@ -69,6 +73,20 @@ export default function CustomerForm({ customer, full = false, onSaved }) {
       </Field>
       {full && (
         <>
+          <div>
+            <p className="mb-1 font-medium text-gray-700">Harga jual untuk toko ini</p>
+            <Segmented
+              value={margin}
+              onChange={setMargin}
+              options={[
+                { value: 'none', label: 'Normal' },
+                ...MARGIN_TIERS.map((pct) => ({ value: String(pct), label: `+${pct}%` })),
+              ]}
+            />
+            <p className="mt-1 text-sm text-gray-600">
+              Persen di atas harga modal produk. Dipakai untuk produk yang belum pernah dibeli toko ini (kalau harga modalnya diisi).
+            </p>
+          </div>
           <Field label="Alamat">
             <TextArea value={address} onChange={(e) => setAddress(e.target.value)} />
           </Field>

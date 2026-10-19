@@ -15,6 +15,14 @@ export function formatRupiah(n) {
   return 'Rp ' + formatNumber(n)
 }
 
+// Pilihan persen untung di atas harga modal (dipakai di form Produk & Toko).
+export const MARGIN_TIERS = [15, 20, 25]
+
+// Harga jual = modal + persen untung, dibulatkan ke Rp 100 terdekat supaya rapi.
+export function priceWithMargin(costPrice, percent) {
+  return Math.round((Number(costPrice) * (1 + percent / 100)) / 100) * 100
+}
+
 // "Rp 1.250.000" / "1250000" -> 1250000
 export function parseDigits(str) {
   const digits = String(str ?? '').replace(/\D/g, '').slice(0, 13)
