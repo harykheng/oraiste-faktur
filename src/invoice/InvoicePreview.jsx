@@ -1,7 +1,9 @@
-// Preview faktur di layar. Merender objek dari buildInvoiceDoc().
+// Preview faktur di layar, layout sama dengan PDF (format faktur DIANA KOSMETIK).
+// Merender objek dari buildInvoiceDoc(). Status bayar tidak ditampilkan di sini
+// karena tidak dicetak di faktur; status ada di badge & bagian Pembayaran.
 export default function InvoicePreview({ doc }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 text-[0.9rem]">
+    <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 text-[0.9rem] text-black">
       {doc.status === 'void' && (
         <div className="mb-3 rounded-xl bg-gray-900 p-3 text-center text-white">
           <p className="text-xl font-bold tracking-widest">DIBATALKAN</p>
@@ -9,59 +11,58 @@ export default function InvoicePreview({ doc }) {
         </div>
       )}
 
-      <div className="border-b border-gray-200 pb-3">
-        <p className="text-lg font-bold">{doc.business.name}</p>
-        {doc.business.whatsapp && <p className="text-gray-600">WA {doc.business.whatsapp}</p>}
-        {doc.business.address && <p className="whitespace-pre-line text-gray-600">{doc.business.address}</p>}
-      </div>
-
-      <div className="flex justify-between gap-3 py-3">
-        <div>
-          <p className="text-lg font-bold tracking-wide">FAKTUR</p>
-          <p>{doc.invoiceNumber}</p>
-          <p className="text-gray-600">{doc.date}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-gray-600">Kepada</p>
-          <p className="font-bold">{doc.customerName}</p>
-        </div>
-      </div>
-
-      <div className="divide-y divide-gray-100 border-y border-gray-200">
-        {doc.items.map((it, i) => (
-          <div key={i} className="flex justify-between gap-3 py-2">
-            <div className="min-w-0">
-              <p className="font-semibold">{it.name}</p>
-              <p className="text-gray-600">
-                {it.packing} · {it.qty} × {it.price}
-              </p>
-            </div>
-            <p className="shrink-0 font-semibold">{it.subtotal}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="flex items-baseline justify-between py-3">
-        <span className="font-bold">TOTAL</span>
-        <span className="text-xl font-bold">{doc.total}</span>
-      </div>
-
-      <div className="grid gap-1 rounded-xl bg-gray-50 p-3">
-        <p className="font-bold">{doc.statusText}</p>
-        {doc.paid && (
+      <div className="flex justify-between gap-3 pb-3">
+        <div className="min-w-0">
+          <p className="font-bold">FAKTUR NO: {doc.invoiceNumber}</p>
+          <p className="text-lg font-bold leading-tight">{doc.business.name}</p>
+          {doc.business.whatsapp && <p>Telp/WA: {doc.business.whatsapp}</p>}
           <p>
-            Sudah dibayar {doc.paid} · Sisa {doc.remaining}
+            Tanggal: <span className="font-bold">{doc.date}</span>
           </p>
-        )}
-        <p>
-          {doc.term} · Jatuh tempo {doc.dueDate}
-        </p>
-        {doc.bank && (
-          <p className="text-gray-700">
-            Transfer: {doc.bank.name} {doc.bank.number} a.n. {doc.bank.holder}
-          </p>
-        )}
+        </div>
+        <p className="max-w-[45%] text-right font-bold">{doc.customerName}</p>
       </div>
+
+      <div className="grid grid-cols-[1.5rem_1fr_auto] gap-x-2 border-b-2 border-black pb-1 text-sm font-bold">
+        <span className="text-center">No</span>
+        <span>Nama Produk</span>
+        <span className="text-right">Subtotal</span>
+      </div>
+      {doc.items.map((it) => (
+        <div key={it.no} className="grid grid-cols-[1.5rem_1fr_auto] gap-x-2 pt-2">
+          <span className="text-center">{it.no}</span>
+          <div className="min-w-0">
+            <p>{it.name}</p>
+            <p className="text-sm text-gray-600">
+              {it.qty} × {it.price} · {it.packing}
+            </p>
+          </div>
+          <span className="text-right font-bold">{it.subtotal}</span>
+        </div>
+      ))}
+
+      <div className="mt-6 flex items-end gap-3">
+        <div className="grid flex-1 grid-cols-2 gap-2 text-center text-sm">
+          <div>
+            <p>Cap & TTD Penerima,</p>
+            <p className="mx-auto mt-8 w-full max-w-24 border-t border-black pt-1 leading-5">&nbsp;</p>
+          </div>
+          <div>
+            <p>Hormat Kami,</p>
+            <p className="mx-auto mt-8 w-full max-w-24 border-t border-black pt-1 leading-5">{doc.business.signName}</p>
+          </div>
+        </div>
+        <div className="flex w-[45%] justify-between border-t border-black pt-1 font-bold leading-5">
+          <span>TOTAL</span>
+          <span>{doc.total}</span>
+        </div>
+      </div>
+
+      {doc.bank && (
+        <p className="mt-4 text-sm text-gray-700">
+          Pembayaran transfer ke: {doc.bank.name} {doc.bank.number} a.n. {doc.bank.holder}
+        </p>
+      )}
     </div>
   )
 }
